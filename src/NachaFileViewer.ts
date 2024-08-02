@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
-import { NachaFileError, NachaFileParser } from './NachaFileParser';
+import { NachaFileParser, NachaRecord } from './NachaFileParser';
+import { RECORD_RENDERERS } from './NachaRecordRenderers';
 const midlandsNacha = require('@midlandsbank/node-nacha');
 
 export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider {
@@ -25,7 +26,7 @@ export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider 
         webviewPanel.webview.options = {
             enableScripts: true,
         };
-		webviewPanel.webview.html = await this.render(document);
+		webviewPanel.webview.html = await this.render(webviewPanel.webview, document);
 
         function updateWebview() {
 			webviewPanel.webview.postMessage({
@@ -57,38 +58,68 @@ export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider 
 
 		updateWebview();
     }
-    
-    async render(document: vscode.TextDocument): Promise<string> {
+
+    mediaUri(webview: vscode.Webview, file: string) {
+        return webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', file));
+    }
+
+    async render(webview: vscode.Webview, document: vscode.TextDocument): Promise<string> {
+		// Get the local path to main script run in the webview, then convert it to a uri we can use in the webview.
+		const scriptUri = this.mediaUri(webview, 'main.js');
+		const styleMainUri = this.mediaUri(webview, 'main.css');
+		const styleVscodeUri = this.mediaUri(webview, 'vscode.css');
+
         let rawText = document.getText();
         let nachaFile = midlandsNacha.from(rawText);
         let nachaJson = nachaFile.to('json');
 
         let model = new NachaFileParser(rawText);
 
+		// Use a nonce to only allow a specific script to be run.
+		const nonce = getNonce();
+
         let html = "";
-        html = `
-        <html>
+        html = `<!DOCTYPE html>
+        <html lang="en">
             <head>
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}';">
+
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+				<link href="${styleVscodeUri}" rel="stylesheet">
+				<link href="${styleMainUri}" rel="stylesheet">
             </head>
             <body>
-                <h2>Header</h2>
-                <pre>${model.fileHeader?.lineNumber}: ${model.fileHeader?.rawText}</pre>
-                Batches: ${model.batchHeaders.length}
-                <br /> <br />
+                <span>${document.fileName}</span>
+                <hr />
+                ${await this.renderRecords(model)}
                 <hr/>
                 <h2>Errors</h2>
                 ${await this.renderErrors(model)}
                 <hr/>
-                <h2>File Path:</h2>
-                <span>${document.fileName}</span>
                 <h2>Raw file:</h2>
-                <pre style="color:aquamarine; padding-left: 50px;">${rawText}</pre>
+                <pre style="padding-left: 50px;">${rawText}</pre>
                 <h2>Parsed json:</h2>
                 <pre id=account class=json-container>${nachaJson}</pre>
                 <hr />
                 <br />
+
+                <script nonce="${nonce}" src="${scriptUri}"></script>
             </body>
         </html>`;
+        return html;
+    }
+
+    async renderRecords(model: NachaFileParser): Promise<string> {
+        let html = '<ul class="records">';
+
+        for (let record of model.records) {
+            let renderer = RECORD_RENDERERS[record.type] || RECORD_RENDERERS["?"];
+            html += await renderer.render(record);
+        }
+
+        html += "</ul>";
+
         return html;
     }
 
@@ -102,8 +133,17 @@ export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider 
             html += `<li><div>${error.message}<br /><pre>${error.lineNumber}:&nbsp<span>${error.line}</span></li>
             `;
         }
+        html += "</ul>";
 
         return html;
     }
 }
 
+function getNonce() {
+	let text = '';
+	const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+	for (let i = 0; i < 32; i++) {
+		text += possible.charAt(Math.floor(Math.random() * possible.length));
+	}
+	return text;
+}

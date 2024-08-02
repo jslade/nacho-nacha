@@ -1,0 +1,44 @@
+
+ul.records {
+    list-style-type: none; /* Remove bullets */
+    padding: 0;
+}
+
+ul.records li.record {
+    
+}
+
+ul.records .lineNumber {
+    display: inline-block;
+    width: 3rem;
+    text-align: right;
+}
+
+ul.records .text {
+    font-family: monospace;
+    white-space: pre;
+}
+
+.c0 {
+    color: white;
+}
+
+.c1 {
+    color: green;
+}
+
+.c2 {
+    color: cyan;
+}
+
+.c3 {
+    color: magenta;
+}
+
+.c4 {
+    color: yellow;
+}
+
+.c5 {
+    color: teal;
+}

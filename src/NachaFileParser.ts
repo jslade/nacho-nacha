@@ -30,10 +30,12 @@ export class NachaFieldSpec {
 export class NachaRecord {
     FIELDS: { [name: string]: NachaFieldSpec } = {};
     rawText: string;
+    type: string;
     lineNumber: number;
 
     constructor(rawText: string, lineNumber: number) {
         this.rawText = rawText;
+        this.type = rawText.substring(0, 1);
         this.lineNumber = lineNumber;
     }
 
@@ -55,11 +57,19 @@ export class NachaRecord {
 
 export class FileHeaderRecord extends NachaRecord {
     FIELDS = {
-        priority_code: new NachaFieldSpec(2,3, true),
+        record_type: new NachaFieldSpec(1, 1, true),
+        priority_code: new NachaFieldSpec(2, 3, true),
         immediate_destination: new NachaFieldSpec(4, 13),
         immediate_origin: new NachaFieldSpec(14, 23),
         file_creation_date: new NachaFieldSpec(24, 29),
-        file_creation_time: new NachaFieldSpec(30, 33)
+        file_creation_time: new NachaFieldSpec(30, 33),
+        file_id_modifier: new NachaFieldSpec(34, 34),
+        record_size: new NachaFieldSpec(35, 37, true),
+        blocking_factor: new NachaFieldSpec(38, 39, true),
+        format_code: new NachaFieldSpec(40, 40, false),
+        immediate_destination_name: new NachaFieldSpec(41, 63),
+        immediate_origin_name: new NachaFieldSpec(64, 86),
+        reference_code: new NachaFieldSpec(87, 94)
     };
 
     control?: FileControlRecord;
@@ -67,6 +77,14 @@ export class FileHeaderRecord extends NachaRecord {
 
 export class FileControlRecord extends NachaRecord {
     FIELDS = {
+        record_type: new NachaFieldSpec(1, 1, true),
+        batch_count: new NachaFieldSpec(2, 7, true),
+        block_count: new NachaFieldSpec(8, 13, true),
+        entry_addenda_count: new NachaFieldSpec(14, 21, true),
+        entry_hash: new NachaFieldSpec(22, 31),
+        total_debit_amount_cents: new NachaFieldSpec(32, 43, true),
+        total_credit_amount_cents: new NachaFieldSpec(44, 55, true),
+        reserved: new NachaFieldSpec(56, 94),
     };
 
     header?: FileHeaderRecord;
@@ -74,6 +92,19 @@ export class FileControlRecord extends NachaRecord {
 
 export class BatchHeaderRecord extends NachaRecord {
     FIELDS = {
+        record_type: new NachaFieldSpec(1, 1, true),
+        service_class_code: new NachaFieldSpec(2, 4),
+        company_name: new NachaFieldSpec(5, 20),
+        company_discretionary_data: new NachaFieldSpec(21, 40),
+        company_id: new NachaFieldSpec(41, 50),
+        sec_code: new NachaFieldSpec(51, 53),
+        description: new NachaFieldSpec(54, 63),
+        descriptive_date: new NachaFieldSpec(64, 69),
+        effective_date: new NachaFieldSpec(70, 75),
+        settlement_date: new NachaFieldSpec(76, 78, true),
+        originator_status_code: new NachaFieldSpec(79, 79),
+        orignator_dfi_id: new NachaFieldSpec(80, 87),
+        batch_number: new NachaFieldSpec(88, 94, true),
     };
 
     control?: BatchControlRecord;
@@ -82,6 +113,17 @@ export class BatchHeaderRecord extends NachaRecord {
 
 export class BatchControlRecord extends NachaRecord {
     FIELDS = {
+        record_type: new NachaFieldSpec(1, 1, true),
+        service_class_code: new NachaFieldSpec(2, 4),
+        entry_addenda_count: new NachaFieldSpec(5, 10, true),
+        entry_hash: new NachaFieldSpec(11, 20),
+        total_debit_amount_cents: new NachaFieldSpec(21, 32, true),
+        total_credit_amount_cents: new NachaFieldSpec(33, 44, true),
+        company_id: new NachaFieldSpec(45, 54),
+        message_authentication_code: new NachaFieldSpec(55, 73, true),
+        reserved: new NachaFieldSpec(74, 79),
+        orignator_dfi_id: new NachaFieldSpec(80, 87),
+        batch_number: new NachaFieldSpec(88, 94, true),
     };
 
     header?: BatchHeaderRecord;
@@ -89,6 +131,17 @@ export class BatchControlRecord extends NachaRecord {
 
 export class EntryDetailRecord extends NachaRecord {
     FIELDS = {
+        record_type: new NachaFieldSpec(1, 1, true),
+        transaction_code: new NachaFieldSpec(2, 3, true),
+        receiving_dfi_id: new NachaFieldSpec(4, 11),
+        check_digit: new NachaFieldSpec(12, 12, true),
+        account_number: new NachaFieldSpec(13, 29),
+        amount: new NachaFieldSpec(30, 39, true),
+        identification_number: new NachaFieldSpec(40, 54),
+        receiver_name: new NachaFieldSpec(55, 76),
+        discretionary_data: new NachaFieldSpec(77, 78),
+        addenda_record_indicator: new NachaFieldSpec(79, 79, true),
+        trace_number: new NachaFieldSpec(80, 94, true),
     };
 
     batchHeader?: BatchHeaderRecord;
@@ -97,12 +150,21 @@ export class EntryDetailRecord extends NachaRecord {
 
 export class EntryAddendumRecord extends NachaRecord {
     FIELDS = {
+        record_type: new NachaFieldSpec(1, 1, true),
+        type_code: new NachaFieldSpec(2, 3, true),
+        payment_information: new NachaFieldSpec(4, 83),
+        addenda_sequence_number: new NachaFieldSpec(84, 87, true),
+        entry_sequence_number: new NachaFieldSpec(88, 94, true),
     };
 
     entry?: EntryDetailRecord;
 }
 
 export class PaddingRecord extends NachaRecord {
+    constructor(rawText: string, lineNumber: number) {
+        super(rawText, lineNumber);
+        this.type = "999";
+    }
 }
 
 export class NachaFileError {
@@ -122,7 +184,7 @@ export class NachaFileError {
 export class NachaFileParser {
     rawText: string;
     lines: Array<string>;
-    records: Array<NachaRecord> = []
+    records: Array<NachaRecord> = [];
 
     fileHeader?: FileHeaderRecord;
     batchHeaders: Array<BatchHeaderRecord> = [];
@@ -147,7 +209,7 @@ export class NachaFileParser {
         "7": EntryAddendumRecord,
         "8": BatchControlRecord,
         "9": FileControlRecord,
-    }
+    };
 
     buildRecord(line: string, lineNumber: number): NachaRecord {
         // special case for padding:
@@ -179,6 +241,10 @@ export class NachaFileParser {
     }
 
     validate(): void {
+        this.validateRecordOrdering();
+    }
+
+    validateRecordOrdering(): void {
         let currentBatch: BatchHeaderRecord | null = null;
         let currentEntry: EntryDetailRecord | null = null;
 
@@ -245,6 +311,7 @@ export class NachaFileParser {
                     if (currentEntry.addendum !== undefined) {
                         this.addError("more than one addendum for entry", record=record);
                     }
+                    // @ts-ignore
                     currentEntry.addendum = record;
                 }
             }
