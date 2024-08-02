@@ -6,18 +6,29 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": [
-    "Other"
-  ],
+	"categories": [
+		"Formatters",
+		"Visualization"
+	],
+	"keywords": [
+		"nacha",
+		"ach"
+	],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "nacho-nacha.nachoTest",
-        "title": "NACHO Test"
-      }
-    ]
+    "commands": [],
+		"customEditors": [
+			{
+				"viewType": "nacho-nacha.achFile",
+				"displayName": "NACHA File Viewer",
+				"selector": [
+					{
+						"filenamePattern": "*.ach"
+					}
+				]
+			}
+		]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
