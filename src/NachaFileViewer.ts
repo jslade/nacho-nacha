@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+import { NachaFileError, NachaFileParser } from './NachaFileParser';
+const midlandsNacha = require('@midlandsbank/node-nacha');
+
 export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider {
     context: vscode.ExtensionContext;
 
@@ -22,7 +25,7 @@ export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider 
         webviewPanel.webview.options = {
             enableScripts: true,
         };
-		webviewPanel.webview.html = this.getHTMLForWebview(webviewPanel.webview, document);
+		webviewPanel.webview.html = await this.render(document);
 
         function updateWebview() {
 			webviewPanel.webview.postMessage({
@@ -55,24 +58,52 @@ export class NachaFileViewerProvider implements vscode.CustomTextEditorProvider 
 		updateWebview();
     }
     
-    getHTMLForWebview(webview: vscode.Webview, document: vscode.TextDocument) {
-        let retHTML = "";
-        retHTML = `
-        <HTML>
-        <BODY>
-            <table border=1 width=100%>
-            <br /> <br />
-            <font size=+1> TEST - File Path: &nbsp;&nbsp; ${document.fileName} </font>
-             <h2> ACH File as-is: </h2>
-             <PRE style="color:aquamarine; padding-left: 50px;">${document.getText()}</PRE>
-             <HR/>
-             <div style="text-align:right; width: 100%;font-style: italic;">
-             ACH File Viewer 1.1.0 &nbsp;&nbsp;
-             </div>
-             <br />
-        </BODY>
-        </HTML>`;
-        return retHTML;
+    async render(document: vscode.TextDocument): Promise<string> {
+        let rawText = document.getText();
+        let nachaFile = midlandsNacha.from(rawText);
+        let nachaJson = nachaFile.to('json');
+
+        let model = new NachaFileParser(rawText);
+
+        let html = "";
+        html = `
+        <html>
+            <head>
+            </head>
+            <body>
+                <h2>Header</h2>
+                <pre>${model.fileHeader?.lineNumber}: ${model.fileHeader?.rawText}</pre>
+                Batches: ${model.batchHeaders.length}
+                <br /> <br />
+                <hr/>
+                <h2>Errors</h2>
+                ${await this.renderErrors(model)}
+                <hr/>
+                <h2>File Path:</h2>
+                <span>${document.fileName}</span>
+                <h2>Raw file:</h2>
+                <pre style="color:aquamarine; padding-left: 50px;">${rawText}</pre>
+                <h2>Parsed json:</h2>
+                <pre id=account class=json-container>${nachaJson}</pre>
+                <hr />
+                <br />
+            </body>
+        </html>`;
+        return html;
+    }
+
+    async renderErrors(model: NachaFileParser): Promise<string> {
+        if (model.errors.length === 0) {
+            return "NONE!";
+        }
+
+        let html = "<ul>";
+        for (let error of model.errors) {
+            html += `<li><div>${error.message}<br /><pre>${error.lineNumber}:&nbsp<span>${error.line}</span></li>
+            `;
+        }
+
+        return html;
     }
 }
 
