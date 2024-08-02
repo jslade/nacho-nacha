@@ -1,19 +1,30 @@
 {
   "name": "nacho-nacha",
   "displayName": "nacho-nacha",
-  "description": "",
+  "description": "NACHA / ACH file viewer and validator",
+	"publisher": "jslade",
+	"license": "MIT",
+	"author": {
+		"name": "Jeremy Slade",
+		"email": "jeremy@jkslade.net",
+		"url": "https://www.linkedin.com/in/jeremy-slade/"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jslade/nacho-nacha"
+	},
+	"categories": [
+		"Formatters",
+		"Visualization"
+	],
+	"keywords": [
+		"nacha",
+		"ach"
+	],
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.90.0"
+    "vscode": "^1.76.0"
   },
-  "categories": [
-    "Formatters",
-    "Visualization"
-  ],
-  "keywords": [
-    "nacha",
-    "ach"
-  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
